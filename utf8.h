@@ -330,7 +330,7 @@ Perl's extended UTF-8 means we can have start bytes up to FF.
  * no need to do it again here
  */
 #define isIDFIRST_lazy_if(p,UTF) ((IN_BYTES || !UTF ) \
-				 ? isIDFIRST(*(p)) \
+				 ? isIDFIRST_L1(*(p)) \
 				 : isIDFIRST_utf8((const U8*)p))
 #define isWORDCHAR_lazy_if(p,UTF)   ((IN_BYTES || (!UTF )) \
 				 ? isWORDCHAR(*(p)) \
