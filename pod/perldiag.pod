@@ -2197,6 +2197,13 @@ when Perl was built using standard options.  For some reason, your
 version of Perl appears to have been built without this support.  Talk
 to your Perl administrator.
 
+=item Illegal character %s (%s) in variable name
+
+(F) An illegal character was found in a length-one variable name.
+You tried using a single character as a variable name in your
+source code, but the character did not match \p{XIDS} nor \p{POSIX_Punct}.
+See L<perldata/Identifier parsing> for further details.
+
 =item Illegal character in prototype for %s : %s
 
 (W illegalproto) An illegal character was found in a prototype declaration.
