@@ -7,11 +7,50 @@ BEGIN {
     require './test.pl';
 }
 
-plan (tests => 65714);
+plan (tests => 65719);
 
 use 5.016;
 use utf8;
 use open qw( :utf8 :std );
+
+# ${single:colon} should not be valid syntax
+{
+    no strict;
+
+    local $@;
+    eval "\${\x{30cd}single:\x{30cd}colon} = 1";
+    like($@,
+         qr/syntax error .* near "\x{30cd}single:/,
+         '${\x{30cd}single:\x{30cd}colon} should not be valid syntax'
+        );
+    
+    local $@;
+    no utf8;
+    evalbytes '${single:colon} = 1';
+    like($@,
+         qr/syntax error .* near "single:/,
+         '...same with ${single:colon}'
+        );
+}
+
+# ${yadda'etc} and ${yadda::etc} should both work under strict
+{
+    local $@;
+    eval q<use strict; ${flark::fleem}>;
+    is($@, '', q<${package::var} works>);
+    
+    local $@;
+    eval q<use strict; ${fleem'flark}>;
+    is($@, '', q<...as does ${package'var}>);
+}
+
+# The first character in ${...} should respect the rules
+{
+   local $@;
+   use utf8;
+   eval '${☭asd} = 1';
+   like($@, qr/\QUnrecognized character/, q(the first character in ${...} isn't special))
+}
 
 # Checking that at least some of the special variables work
 for my $v (qw( ^V ; < > ( ) {^GLOBAL_PHASE} ^W _ 1 4 0 [ ] ! @ / \ = )) {
@@ -29,19 +68,20 @@ for my $v (qw( ^V ; < > ( ) {^GLOBAL_PHASE} ^W _ 1 4 0 [ ] ! @ / \ = )) {
 for ( 0x80..0xff ) {
     no warnings 'closure';
     my $chr = chr;
+    my $esc = sprintf("%X", ord $chr);
     utf8::downgrade($chr);
     if ($chr !~ /\p{XIDS}/) {
         local $@;
         evalbytes "no strict; \$$chr = 1";
         like $@,
-            qr/\QIllegal character "$chr" (\E[^()]+\Q) in variable name/,
+            qr/\QUnrecognized character \x$esc/,
             sprintf("\\x%02x, part of the latin-1 range, is illegal as a length-1 variable", $_);
 
         utf8::upgrade($chr);
         local $@;
         eval "no strict; use utf8; \$$chr = 1";
         like $@,
-            qr/\QIllegal character "$chr" (\E[^()]+\Q) in variable name/,
+            qr/\QUnrecognized character \x{\E\L$esc/,
             sprintf("\\x%02x, part of the latin-1 range, is illegal as a length-1 variable under use utf8", $_);
     }
     else {
@@ -90,11 +130,12 @@ for my $chr (
    )
 {
    no warnings 'non_unicode';
+   my $esc = sprintf("%x", ord $chr);
    local $@;
    eval "\$$chr = 1; \$$chr";
    like($@,
-        qr/\QIllegal character "$chr" (\E[^()]+\Q) in variable name/,
-        sprintf("\x{%04x} is illegal for a lenght-one identifier", ord $chr)
+        qr/\QUnrecognized character \x{$esc};/,
+        "\\x{$esc} is illegal for a lenght-one identifier"
        );
 }
 
@@ -106,9 +147,10 @@ for my $i (0x100..0xffff) {
       is($@, '', sprintf("\\x{%04x} is XIDS, works as a length-1 variable", $i));
    }
    else {
+      my $esc = sprintf("%x", ord $chr);
       like($@,
-           qr/\QIllegal character "$chr" (\E[^()]+\Q) in variable name/,
-           sprintf("\\x{%04x} isn't XIDS, illegal as a length-1 variable", $i),
+           qr/\QUnrecognized character \x{$esc};/,
+           "\\x{$esc} isn't XIDS, illegal as a length-1 variable",
           )
    }
 }

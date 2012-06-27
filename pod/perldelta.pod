@@ -42,7 +42,7 @@ to accepting characters that match the \p{POSIX_Punct} property.
 
 Another possibly unfortunate side effect of this is that this code:
 
-	say eval "q\N{MIDDLE DOT} test \N{MIDDLE DOT}";
+   say eval "q\N{MIDDLE DOT} test \N{MIDDLE DOT}";
 
 Now produces a syntax error, where before it would've outputted ' test '.
 This is because previously, the parser would've grabbed the 'qq' (or, actually
@@ -50,6 +50,12 @@ any ASCII letter) without looking for \p{XIDC} characters following them.
 This actually makes the behaviour consistent with the pre-existing rule;
 to use a valid identifier character as a delimiter, there needs to be a
 space before it: C<eval "q mfoom"> is "foo", but C<eval "qmfoom"> is not.
+
+Another backwards-incompatible change is the parsing of $... and ${...};
+previously, they were dealt with in different parts of the core, and so
+had slightly diffent behavior. For instance, C<${foo:bar}> was a legal
+variable name.  Since they are now both parsed by the same code,
+that is no longer the case.
 
 =head1 Deprecations
 
@@ -323,12 +329,6 @@ and New Warnings
 =item *
 
 XXX L<message|perldiag/"message">
-
-=item *
-
-Perl now restricts the set of characters allowed in length-one variables.
-See L<Illegal character %s (%s) in variable name|perldiag/Illegal character %s (%s) in variable name>
-and L<Identifier parsing|perldata/Identifier parsing>.
 
 =back
 

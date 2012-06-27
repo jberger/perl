@@ -2239,6 +2239,8 @@ so	|SV*	|new_constant	|NULLOK const char *s|STRLEN len \
 				|STRLEN typelen
 s	|int	|deprecate_commaless_var_list
 s	|int	|ao		|int toketype
+s   |void|parse_ident|NN char **s|NN char **d \
+                     |NN char * const e|bool is_utf8
 #  if defined(PERL_CR_FILTER)
 s	|I32	|cr_textfilter	|int idx|NULLOK SV *sv|int maxlen
 s	|void	|strip_return	|NN SV *sv

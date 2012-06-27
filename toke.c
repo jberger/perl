@@ -9235,6 +9235,43 @@ S_scan_word(pTHX_ char *s, char *dest, STRLEN destlen, int allow_package, STRLEN
     }
 }
 
+void
+S_parse_ident(pTHX_ char **s, char **d, char * const e, bool is_utf8) {
+    dVAR;
+    PERL_ARGS_ASSERT_PARSE_IDENT;
+    
+    for (;;) {
+        if (*d >= e)
+            Perl_croak(aTHX_ "%s", ident_too_long);
+        if (is_utf8 && isIDFIRST_utf8((U8*)*s))
+        {
+            /* See the note in scan_word as for why the UTF-8 case comes first */
+            char *t = *s + UTF8SKIP(*s);
+            while (isIDCONT_utf8((U8*)t))
+                t += UTF8SKIP(t);
+            if (*d + (t - *s) > e)
+                Perl_croak(aTHX_ "%s", ident_too_long);
+            Copy(*s, *d, t - *s, char);
+            *d += t - *s;
+            *s = t;
+        }
+        else if (is_utf8 ? isDIGIT_A(**s) : (isALNUMC_L1(**s) || **s == '_') )
+            *(*d)++ = *(*s)++;
+        else if (**s == '\'' && isIDFIRST_lazy_if(*s+1,is_utf8)) {
+            *(*d)++ = ':';
+            *(*d)++ = ':';
+            (*s)++;
+        }
+        else if (**s == ':' && (*s)[1] == ':') {
+            *(*d)++ = *(*s)++;
+            *(*d)++ = *(*s)++;
+        }
+        else
+            break;
+    }
+    return;
+}
+
 STATIC char *
 S_scan_ident(pTHX_ char *s, const char *send, char *dest, STRLEN destlen, I32 ck_uni)
 {
@@ -9257,36 +9294,7 @@ S_scan_ident(pTHX_ char *s, const char *send, char *dest, STRLEN destlen, I32 ck
 	}
     }
     else {
-	for (;;) {
-	    if (d >= e)
-		Perl_croak(aTHX_ "%s", ident_too_long);
-            if (is_utf8 && (UTF8_IS_START(*s) || UTF8_IS_INVARIANT(*s))
-                    && isIDFIRST_utf8((U8*)s))
-            {
-                /* See the note in scan_word as for why the UTF-8 case comes first */
-                char *t = s + UTF8SKIP(s);
-                while (isIDCONT_utf8((U8*)t))
-                    t += UTF8SKIP(t);
-                if (d + (t - s) > e)
-                    Perl_croak(aTHX_ ident_too_long);
-                Copy(s, d, t - s, char);
-                d += t - s;
-                s = t;
-            }
-            else if (is_utf8 ? isDIGIT_A(*s) : (isALNUMC_L1(*s) || *s == '_') )
-                *d++ = *s++;
-	    else if (*s == '\'' && isIDFIRST_lazy_if(s+1,is_utf8)) {
-		*d++ = ':';
-		*d++ = ':';
-		s++;
-	    }
-	    else if (*s == ':' && s[1] == ':') {
-		*d++ = *s++;
-		*d++ = *s++;
-	    }
-	    else
-		break;
-	}
+        parse_ident(&s, &d, e, is_utf8);
     }
     *d = '\0';
     d = dest;
@@ -9304,7 +9312,14 @@ S_scan_ident(pTHX_ char *s, const char *send, char *dest, STRLEN destlen, I32 ck
 	bracket = s;
 	s++;
     }
-    if (s < send) {
+
+#define VALID_LEN_ONE_IDENT(d)     (isASCII(*(d))                   \
+                                      && (isPUNCT_A((U8)*(d))       \
+                                            || isCNTRL_A((U8)*(d))  \
+                                            || isDIGIT_A((U8)*(d))))
+    if (s < send
+        && (isIDFIRST_lazy_if(s, is_utf8) || VALID_LEN_ONE_IDENT(s)))
+    {
         if (is_utf8) {
             const STRLEN skip = UTF8SKIP(s);
             STRLEN i;
@@ -9334,30 +9349,8 @@ S_scan_ident(pTHX_ char *s, const char *send, char *dest, STRLEN destlen, I32 ck
 	    }
 	}
     if (isIDFIRST_lazy_if(d,is_utf8)) {
-	    if (is_utf8) {
-            char *end = s;
-            d += UTF8SKIP(d);
-            while ( (end < send && isALNUM_utf8((U8*)end)) || *end == ':' ) {
-                if ( end[0] == ':' && end[1] == ':' ) {
-                    end += 2;
-                }
-                else {
-                    end += UTF8SKIP(end);
-                    while (end < send && isIDCONT_utf8((U8*)end))
-                        end += UTF8SKIP(end);
-                }
-            }
-            Copy(s, d, end - s, char);
-            d += end - s;
-            s = end;
-	    }
-        else {
-            d++;
-		while ((isALNUMC(*s) || *s == '_' || *s == ':') && d < e)
-		    *d++ = *s++;
-		if (d >= e)
-		    Perl_croak(aTHX_ "%s", ident_too_long);
-	    }
+        d += is_utf8 ? UTF8SKIP(d) : 1;
+        parse_ident(&s, &d, e, is_utf8);
 	    *d = '\0';
 	    while (s < send && SPACE_OR_TAB(*s))
 		s++;
@@ -9419,20 +9412,6 @@ S_scan_ident(pTHX_ char *s, const char *send, char *dest, STRLEN destlen, I32 ck
     else if (PL_lex_state == LEX_INTERPNORMAL && !PL_lex_brackets && !intuit_more(s))
 	PL_lex_state = LEX_INTERPEND;
 
-#define VALID_LEN_ONE_INDENT(d)     (isASCII(*(d))                        \
-                                      && (isPUNCT_A((U8)*(d)) || isCNTRL_A((U8)*(d)) || isDIGIT_A((U8)*(d))) )
-
-    if (d && *d && !VALID_LEN_ONE_INDENT(d) ) {
-        SV *dsv = newSVpvs_flags("", SVs_TEMP);
-        const char *c = is_utf8 ? savepv(sv_uni_display(dsv, newSVpvn_flags(d,
-                                                   UTF8SKIP(d),
-                                                   SVs_TEMP | SVf_UTF8),
-                                          10, UNI_DISPLAY_ISPRINT))
-                           : Perl_form(aTHX_ "\\x%02X", (unsigned char)*d);
-        yyerror_pv(Perl_form(aTHX_
-            "Illegal character \"%.*s\" (%s) in variable name", UTF8SKIP(d), d, c),
-           is_utf8 ? SVf_UTF8 : 0);
-    }
     return s;
 }
 
