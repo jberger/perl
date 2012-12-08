@@ -231,8 +231,6 @@ struct xpvhv {
  * It is 64 bit only.
  */
 
-#define PERL_HASH_NEEDS_TWO_SEEDS
-
 #ifndef U64
 #define U64 uint64_t
 #endif
