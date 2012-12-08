@@ -144,7 +144,6 @@ struct xpvhv {
 #define PERL_HASH_FUNC_SIPHASH
 #define PERL_HASH_FUNC_ONE_AT_A_TIME
 #define PERL_HASH_FUNC_ONE_AT_A_TIME_OLD
-#define PERL_HASH_FUNC_BUZZHASH16
 */
 
 #if !( 0 \
@@ -154,7 +153,6 @@ struct xpvhv {
         || defined(PERL_HASH_FUNC_MURMUR3) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME_OLD) \
-        || defined(PERL_HASH_FUNC_BUZZHASH16) \
     )
 #ifdef U64
 #define PERL_HASH_FUNC_SIPHASH
@@ -163,57 +161,7 @@ struct xpvhv {
 #endif
 #endif
 
-#if defined(PERL_HASH_FUNC_BUZZHASH16)
-/* "BUZZHASH16"
- *
- * I whacked this together while just playing around.
- *
- * The idea is that instead of hashing the actual string input we use the
- * bytes of the string as an index into a table of randomly generated
- * 16 bit values.
- *
- * A left rotate is used to "mix" in previous bits as we go, and I borrowed
- * the avalanche function from one-at-a-time for the final step. A lookup
- * into the table based on the lower 8 bits of the length combined with
- * the length itself is used as an itializer.
- *
- * The resulting hash value has no actual bits fed in from the string so
- * I would guess it is pretty secure, although I am not a cryptographer
- * and have no idea for sure. Nor has it been rigorously tested. On the
- * other hand it is reasonably fast, and seems to produce reasonable
- * distributions.
- *
- * Yves Orton
- */
-
-
-#define PERL_HASH_FUNC "BUZZHASH16"
-#define PERL_HASH_SEED_BYTES 512 /* 2 bytes per octet value, 2 * 256 */
-/* Find best way to ROTL32 */
-#if defined(_MSC_VER)
-  #include <stdlib.h>  /* Microsoft put _rotl declaration in here */
-  #define BUZZHASH_ROTL32(x,r)  _rotl(x,r)
-#else
-  /* gcc recognises this code and generates a rotate instruction for CPUs with one */
-  #define BUZZHASH_ROTL32(x,r)  (((U32)x << r) | ((U32)x >> (32 - r)))
-#endif
-
-#define PERL_HASH(hash,str,len) \
-     STMT_START        { \
-        const char * const s_PeRlHaSh_tmp = (str); \
-        const unsigned char *s_PeRlHaSh = (const unsigned char *)s_PeRlHaSh_tmp; \
-        const unsigned char *end_PeRlHaSh = (const unsigned char *)s_PeRlHaSh + len; \
-        U32 hash_PeRlHaSh = (PERL_HASH_SEED_U16_x(len & 0xff) << 16) + len; \
-        while (s_PeRlHaSh < end_PeRlHaSh) { \
-            hash_PeRlHaSh ^= PERL_HASH_SEED_U16_x((U8)*s_PeRlHaSh++); \
-            hash_PeRlHaSh += BUZZHASH_ROTL32(hash_PeRlHaSh,11); \
-        } \
-        hash_PeRlHaSh += (hash_PeRlHaSh << 3); \
-        hash_PeRlHaSh ^= (hash_PeRlHaSh >> 11); \
-        (hash) = (hash_PeRlHaSh + (hash_PeRlHaSh << 15)); \
-    } STMT_END
-
-#elif defined(PERL_HASH_FUNC_SIPHASH)
+#if defined(PERL_HASH_FUNC_SIPHASH)
 #define PERL_HASH_FUNC "SIPHASH"
 #define PERL_HASH_SEED_BYTES 16
 
