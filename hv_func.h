@@ -20,12 +20,13 @@
         || defined(PERL_HASH_FUNC_XXHASH_FAST32) \
         || defined(PERL_HASH_FUNC_XXHASH_STRONG32) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME) \
+        || defined(PERL_HASH_FUNC_ONE_AT_A_TIME_HARD) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME_OLD) \
     )
 #ifdef HAS_QUAD
 #define PERL_HASH_FUNC_SIPHASH
 #else
-#define PERL_HASH_FUNC_ONE_AT_A_TIME
+#define PERL_HASH_FUNC_ONE_AT_A_TIME_HARD
 #endif
 #endif
 
@@ -57,6 +58,10 @@
 #   define PERL_HASH_FUNC "XXHASH_STRONG32"
 #   define PERL_HASH_SEED_BYTES 4
 #   define PERL_HASH(hash,str,len) (hash)= S_perl_hash_xxhash_strong32(PERL_HASH_SEED,(U8*)(str),(len))
+#elif defined(PERL_HASH_FUNC_ONE_AT_A_TIME_HARD)
+#   define PERL_HASH_FUNC "ONE_AT_A_TIME_HARD"
+#   define PERL_HASH_SEED_BYTES 8
+#   define PERL_HASH(hash,str,len) (hash)= S_perl_hash_one_at_a_time_hard(PERL_HASH_SEED,(U8*)(str),(len))
 #elif defined(PERL_HASH_FUNC_ONE_AT_A_TIME)
 #   define PERL_HASH_FUNC "ONE_AT_A_TIME"
 #   define PERL_HASH_SEED_BYTES 4
@@ -470,9 +475,11 @@ S_perl_hash_sdbm(const unsigned char * const seed, const unsigned char *str, con
 }
 
 
-/* FYI: This is the "One-at-a-Time" algorithm by Bob Jenkins
+/* This is the "One-at-a-Time" algorithm by Bob Jenkins
  * from requirements by Colin Plumb.
- * (http://burtleburtle.net/bob/hash/doobs.html) */
+ * (http://burtleburtle.net/bob/hash/doobs.html)
+ * With seed/len tweak.
+ * */
 PERL_STATIC_INLINE U32
 S_perl_hash_one_at_a_time(const unsigned char * const seed, const unsigned char *str, const STRLEN len) {
     const unsigned char * const end = (const unsigned char *)str + len;
@@ -482,6 +489,37 @@ S_perl_hash_one_at_a_time(const unsigned char * const seed, const unsigned char 
         hash += (hash << 10);
         hash ^= (hash >> 6);
     }
+    hash += (hash << 3);
+    hash ^= (hash >> 11);
+    return (hash + (hash << 15));
+}
+
+/* Derived from "One-at-a-Time" algorithm by Bob Jenkins */
+PERL_STATIC_INLINE U32
+S_perl_hash_one_at_a_time_hard(const unsigned char * const seed, const unsigned char *str, const STRLEN len) {
+    const unsigned char * const end = (const unsigned char *)str + len;
+    U32 hash = *((U32*)seed) + len;
+
+    hash += seed[4];
+    hash += (hash << 10);
+    hash ^= (hash >> 6);
+    hash += seed[5];
+    hash += (hash << 10);
+    hash ^= (hash >> 6);
+
+    while (str < end) {
+        hash += *str++;
+        hash += (hash << 10);
+        hash ^= (hash >> 6);
+    }
+
+    hash += seed[6];
+    hash += (hash << 10);
+    hash ^= (hash >> 6);
+    hash += seed[7];
+    hash += (hash << 10);
+    hash ^= (hash >> 6);
+
     hash += (hash << 3);
     hash ^= (hash >> 11);
     return (hash + (hash << 15));
