@@ -17,6 +17,8 @@
         || defined(PERL_HASH_FUNC_DJB2) \
         || defined(PERL_HASH_FUNC_SUPERFAST) \
         || defined(PERL_HASH_FUNC_MURMUR3) \
+        || defined(PERL_HASH_FUNC_XXHASH_FAST32) \
+        || defined(PERL_HASH_FUNC_XXHASH_STRONG32) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME_OLD) \
     )
