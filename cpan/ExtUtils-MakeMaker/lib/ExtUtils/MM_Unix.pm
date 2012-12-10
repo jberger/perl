@@ -2770,6 +2770,7 @@ PERL_HDRS = \
 	$(PERL_INC)/gv.h		\
 	$(PERL_INC)/handy.h		\
 	$(PERL_INC)/hv.h		\
+	$(PERL_INC)/hv_func.h		\
 	$(PERL_INC)/intrpvar.h		\
 	$(PERL_INC)/iperlsys.h		\
 	$(PERL_INC)/keywords.h		\
@@ -2788,12 +2789,14 @@ PERL_HDRS = \
 	$(PERL_INC)/pp_proto.h		\
 	$(PERL_INC)/proto.h		\
 	$(PERL_INC)/regcomp.h		\
+	$(PERL_INC)/regcharclass.h	\
 	$(PERL_INC)/regexp.h		\
 	$(PERL_INC)/regnodes.h		\
 	$(PERL_INC)/scope.h		\
 	$(PERL_INC)/sv.h		\
 	$(PERL_INC)/thread.h		\
 	$(PERL_INC)/unixish.h		\
+	$(PERL_INC)/utf8.h              \
 	$(PERL_INC)/util.h
 
 $(OBJECT) : $(PERL_HDRS)
