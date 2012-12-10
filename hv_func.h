@@ -627,7 +627,7 @@ S_perl_hash_xxhash_small32(const unsigned char * const seed, const unsigned char
  ******************************/
 PERL_STATIC_INLINE U32
 S_perl_hash_xxhash_fast32(const unsigned char * const seed, const unsigned char *p, const STRLEN len) {
-        // Special case, for small inputs
+        /* Special case, for small inputs */
         if (len < 16) return S_perl_hash_xxhash_small32(seed, p, len);
 
         {
@@ -650,7 +650,7 @@ S_perl_hash_xxhash_fast32(const unsigned char * const seed, const unsigned char 
                 p = bEnd - 16;
                 v1 += ROTL32(v1, 17); v2 += ROTL32(v2, 19); v3 += ROTL32(v3, 13); v4 += ROTL32(v4, 11);
                 v1 *= XXHASH_PRIME1; v2 *= XXHASH_PRIME1; v3 *= XXHASH_PRIME1; v4 *= XXHASH_PRIME1;
-                v1 += *(U32*)p; p+=4; v2 += *(U32*)p; p+=4; v3 += *(U32*)p; p+=4; v4 += *(U32*)p;   // p+=4;
+                v1 += *(U32*)p; p+=4; v2 += *(U32*)p; p+=4; v3 += *(U32*)p; p+=4; v4 += *(U32*)p;   /* p+=4; */
                 v1 *= XXHASH_PRIME2; v2 *= XXHASH_PRIME2; v3 *= XXHASH_PRIME2; v4 *= XXHASH_PRIME2;
                 v1 += ROTL32(v1, 11); v2 += ROTL32(v2, 17); v3 += ROTL32(v3, 19); v4 += ROTL32(v4, 13);
                 v1 *= XXHASH_PRIME3; v2 *= XXHASH_PRIME3; v3 *= XXHASH_PRIME3; v4 *= XXHASH_PRIME3;
@@ -671,7 +671,7 @@ S_perl_hash_xxhash_fast32(const unsigned char * const seed, const unsigned char 
 
 PERL_STATIC_INLINE U32
 S_perl_hash_xxhash_strong32(const unsigned char * const seed, const unsigned char *p, const STRLEN len) {
-        // Special case, for small inputs
+        /* Special case, for small inputs */
         if (len < 16) return S_perl_hash_xxhash_small32(seed, p, len);
 
         {
@@ -694,7 +694,7 @@ S_perl_hash_xxhash_strong32(const unsigned char * const seed, const unsigned cha
                 p = bEnd - 16;
                 v1 += ROTL32(v1, 17); v2 += ROTL32(v2, 19); v3 += ROTL32(v3, 13); v4 += ROTL32(v4, 11);
                 v1 *= XXHASH_PRIME1; v2 *= XXHASH_PRIME1; v3 *= XXHASH_PRIME1; v4 *= XXHASH_PRIME1;
-                v1 += *(U32*)p; p+=4; v2 += *(U32*)p; p+=4; v3 += *(U32*)p; p+=4; v4 += *(U32*)p;   // p+=4;
+                v1 += *(U32*)p; p+=4; v2 += *(U32*)p; p+=4; v3 += *(U32*)p; p+=4; v4 += *(U32*)p;   /* p+=4; */
                 v1 *= XXHASH_PRIME2; v2 *= XXHASH_PRIME2; v3 *= XXHASH_PRIME2; v4 *= XXHASH_PRIME2;
                 v1 += ROTL32(v1, 11); v2 += ROTL32(v2, 17); v3 += ROTL32(v3, 19); v4 += ROTL32(v4, 13);
                 v1 *= XXHASH_PRIME3; v2 *= XXHASH_PRIME3; v3 *= XXHASH_PRIME3; v4 *= XXHASH_PRIME3;
