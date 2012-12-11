@@ -535,9 +535,9 @@ Fields are as follows:
 
 See also bucket_info() and bucket_array().
 
-Note that Hash Quality Score would be 1 for an ideal hash,
-and will be larger than one for a poor hash, and lower than one
-for a better than ideal hash. In practice it should be around 0.95 to 1.05.
+Note that Hash Quality Score would be 1 for an ideal hash, numbers
+close to and below 1 indicate good hashing, and number significantly
+above indicate a poor score. In practice it should be around 0.95 to 1.05.
 It is defined as:
 
  $score= sum( $count[$length] * ($length * ($length + 1) / 2) ) /
