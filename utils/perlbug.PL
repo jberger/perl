@@ -314,7 +314,9 @@ EOF
 	|| $::Config{'cf_email'} || $::Config{'cf_by'}
     );
 
-    if ($::HaveUtil) {
+    if (length $ENV{'MAILDOMAIN'}) {
+		$domain = $ENV{'MAILDOMAIN'};
+    } elsif ($::HaveUtil) {
 		$domain = Mail::Util::maildomain();
     } elsif ($Is_MSWin32) {
 		$domain = $ENV{'USERDOMAIN'};
