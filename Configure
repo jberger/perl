@@ -8835,8 +8835,12 @@ your organization...
 EOM
 cont=x
 while test "$cont"; do
+	case "$MAILDOMAIN" in
+	'') maildomain="$myhostnam$mydomain";;
+	*) maildomain="$MAILDOMAIN";;
+	esac
 	case "$cf_email" in
-	'') dflt="$cf_by@$myhostname$mydomain";;
+	'') dflt="$cf_by@$maildomain";;
 	*) dflt="$cf_email";;
 	esac
 	rp='What is your e-mail address?'
