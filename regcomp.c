@@ -5177,7 +5177,7 @@ S_setup_longest(pTHX_ RExC_state_t *pRExC_state, SV* sv_longest, SV** rx_utf8, S
 
 REGEXP *
 Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
-		    OP *expr, const regexp_engine* eng, REGEXP *VOL old_re,
+		    OP *expr, const regexp_engine* eng, REGEXP *old_re,
 		     bool *is_bare_re, U32 orig_rx_flags, U32 pm_flags)
 {
     dVAR;
@@ -5185,14 +5185,14 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
     struct regexp *r;
     regexp_internal *ri;
     STRLEN plen;
-    char  * VOL exp;
+    char *exp;
     char* xend;
     regnode *scan;
     I32 flags;
     I32 minlen = 0;
     U32 rx_flags;
-    SV * VOL pat;
-    SV * VOL code_blocksv = NULL;
+    SV *pat;
+    SV *code_blocksv = NULL;
 
     /* these are all flags - maybe they should be turned
      * into a single int with different bit masks */
@@ -5201,14 +5201,13 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
     I32 sawopen = 0;
     regex_charset initial_charset = get_regex_charset(orig_rx_flags);
     bool code_is_utf8 = 0;
-    bool VOL recompile = 0;
+    bool recompile = 0;
     bool runtime_code = 0;
-    U8 jump_ret = 0;
     scan_data_t data;
     RExC_state_t RExC_state;
     RExC_state_t * const pRExC_state = &RExC_state;
 #ifdef TRIE_STUDY_OPT    
-    int restudied;
+    int restudied = 0;
     RExC_state_t copyRExC_state;
 #endif    
     GET_RE_DEBUG_FLAGS_DECL;
@@ -5526,6 +5525,7 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
     }
 
     exp = SvPV_nomg(pat, plen);
+    xend = exp + plen;
 
     if (!eng->op_comp) {
 	if ((SvUTF8(pat) && IN_BYTES)
@@ -5546,19 +5546,16 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
     RExC_contains_locale = 0;
     pRExC_state->runtime_code_qr = NULL;
 
-  redo_first_pass:
-    if (jump_ret == 0) {    /* First time through */
-	xend = exp + plen;
-
-        DEBUG_COMPILE_r({
+    DEBUG_COMPILE_r({
             SV *dsv= sv_newmortal();
-            RE_PV_QUOTED_DECL(s, RExC_utf8,
-                dsv, exp, plen, 60);
+            RE_PV_QUOTED_DECL(s, RExC_utf8, dsv, exp, plen, 60);
             PerlIO_printf(Perl_debug_log, "%sCompiling REx%s %s\n",
-                           PL_colors[4],PL_colors[5],s);
+                          PL_colors[4],PL_colors[5],s);
         });
-    }
-    else {  /* longjumped back */
+
+    if (0) {
+      redo_first_pass:
+        {
 	U8 *src, *dst;
 	int n=0;
 	STRLEN s = 0, d = 0;
@@ -5614,6 +5611,7 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
 	xend = exp + plen;
 	SAVEFREEPV(exp);
 	RExC_orig_utf8 = RExC_utf8 = 1;
+        }
     }
 
     /* return old regex if pattern hasn't changed */
@@ -5642,10 +5640,6 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
 	runtime_code = S_has_runtime_code(aTHX_ pRExC_state, expr, pm_flags,
 			    exp, plen);
 
-#ifdef TRIE_STUDY_OPT
-    restudied = 0;
-#endif
-
     rx_flags = orig_rx_flags;
 
     if (initial_charset == REGEX_LOCALE_CHARSET) {
@@ -5669,7 +5663,6 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
 	if (!S_compile_runtime_code(aTHX_ pRExC_state, exp, plen)) {
 	    /* whoops, we have a non-utf8 pattern, whilst run-time code
 	     * got compiled as utf8. Try again with a utf8 pattern */
-            jump_ret = 42;
             goto redo_first_pass;
 	}
     }
@@ -5727,7 +5720,6 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
     }
     if (reg(pRExC_state, 0, &flags,1) == NULL) {
         if (flags & RESTART_UTF8) {
-            jump_ret = 42;
             goto redo_first_pass;
         }
         Perl_croak(aTHX_ "panic: reg returned NULL to re_op_compile for sizing pass, flags=%#X", flags);
