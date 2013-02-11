@@ -17,8 +17,6 @@
         || defined(PERL_HASH_FUNC_DJB2) \
         || defined(PERL_HASH_FUNC_SUPERFAST) \
         || defined(PERL_HASH_FUNC_MURMUR3) \
-        || defined(PERL_HASH_FUNC_XXHASH_FAST32) \
-        || defined(PERL_HASH_FUNC_XXHASH_STRONG32) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME_HARD) \
         || defined(PERL_HASH_FUNC_ONE_AT_A_TIME_OLD) \
@@ -50,14 +48,6 @@
 #   define PERL_HASH_FUNC "SDBM"
 #   define PERL_HASH_SEED_BYTES 4
 #   define PERL_HASH(hash,str,len) (hash)= S_perl_hash_sdbm(PERL_HASH_SEED,(U8*)(str),(len))
-#elif defined(PERL_HASH_FUNC_XXHASH_FAST32)
-#   define PERL_HASH_FUNC "XXHASH_FAST32"
-#   define PERL_HASH_SEED_BYTES 4
-#   define PERL_HASH(hash,str,len) (hash)= S_perl_hash_xxhash_fast32(PERL_HASH_SEED,(U8*)(str),(len))
-#elif defined(PERL_HASH_FUNC_XXHASH_STRONG32)
-#   define PERL_HASH_FUNC "XXHASH_STRONG32"
-#   define PERL_HASH_SEED_BYTES 4
-#   define PERL_HASH(hash,str,len) (hash)= S_perl_hash_xxhash_strong32(PERL_HASH_SEED,(U8*)(str),(len))
 #elif defined(PERL_HASH_FUNC_ONE_AT_A_TIME_HARD)
 #   define PERL_HASH_FUNC "ONE_AT_A_TIME_HARD"
 #   define PERL_HASH_SEED_BYTES 8
@@ -542,178 +532,6 @@ S_perl_hash_old_one_at_a_time(const unsigned char * const seed, const unsigned c
     hash += (hash << 3);
     hash ^= (hash >> 11);
     return (hash + (hash << 15));
-}
-
-/*
-   xxHash - Fast Hash algorithm
-   Copyright (C) 2012, Yann Collet.
-   BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions are
-   met:
-
-       * Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-       * Redistributions in binary form must reproduce the above
-   copyright notice, this list of conditions and the following disclaimer
-   in the documentation and/or other materials provided with the
-   distribution.
-
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-        You can contact the author at :
-        - xxHash source repository : http://code.google.com/p/xxhash/
-*/
-
-/**************************************
- * Constants
- **************************************/
-#define XXHASH_PRIME1   2654435761U
-#define XXHASH_PRIME2   2246822519U
-#define XXHASH_PRIME3   3266489917U
-#define XXHASH_PRIME4    668265263U
-#define XXHASH_PRIME5   0x165667b1
-
-
-
-/****************************
- Private functions
-****************************/
-
-/* This version is for very small inputs (< 16  bytes) */
-PERL_STATIC_INLINE U32
-S_perl_hash_xxhash_small32(const unsigned char * const seed, const unsigned char *p, const STRLEN len) {
-        const unsigned char* const bEnd = p + len;
-        U32 idx = *((U32*)seed) + XXHASH_PRIME1;
-        U32 crc = XXHASH_PRIME5;
-        const unsigned char* const limit = bEnd - 4;
-
-        while (p<limit)
-        {
-                crc += ((*(U32*)p) + idx++);
-                crc += ROTL32(crc, 17) * XXHASH_PRIME4;
-                crc *= XXHASH_PRIME1;
-                p+=4;
-        }
-
-        while (p<bEnd)
-        {
-                crc += ((*p) + idx++);
-                crc *= XXHASH_PRIME1;
-                p++;
-        }
-
-        crc += len;
-
-        crc ^= crc >> 15;
-        crc *= XXHASH_PRIME2;
-        crc ^= crc >> 13;
-        crc *= XXHASH_PRIME3;
-        crc ^= crc >> 16;
-
-        return crc;
-}
-
-
-
-/******************************
- * Hash functions
- ******************************/
-PERL_STATIC_INLINE U32
-S_perl_hash_xxhash_fast32(const unsigned char * const seed, const unsigned char *p, const STRLEN len) {
-        /* Special case, for small inputs */
-        if (len < 16) return S_perl_hash_xxhash_small32(seed, p, len);
-
-        {
-                const unsigned char* const bEnd = p + len;
-                U32 v1 = *((U32*)seed) + XXHASH_PRIME1;
-                U32 v2 = v1 * XXHASH_PRIME2 + len;
-                U32 v3 = v2 * XXHASH_PRIME3;
-                U32 v4 = v3 * XXHASH_PRIME4;
-                const unsigned char* const limit = bEnd - 16;
-                U32 crc;
-
-                while (p<limit)
-                {
-                        v1 = ROTL32(v1, 13) + (*(U32*)p); p+=4;
-                        v2 = ROTL32(v2, 11) + (*(U32*)p); p+=4;
-                        v3 = ROTL32(v3, 17) + (*(U32*)p); p+=4;
-                        v4 = ROTL32(v4, 19) + (*(U32*)p); p+=4;
-                }
-
-                p = bEnd - 16;
-                v1 += ROTL32(v1, 17); v2 += ROTL32(v2, 19); v3 += ROTL32(v3, 13); v4 += ROTL32(v4, 11);
-                v1 *= XXHASH_PRIME1; v2 *= XXHASH_PRIME1; v3 *= XXHASH_PRIME1; v4 *= XXHASH_PRIME1;
-                v1 += *(U32*)p; p+=4; v2 += *(U32*)p; p+=4; v3 += *(U32*)p; p+=4; v4 += *(U32*)p;   /* p+=4; */
-                v1 *= XXHASH_PRIME2; v2 *= XXHASH_PRIME2; v3 *= XXHASH_PRIME2; v4 *= XXHASH_PRIME2;
-                v1 += ROTL32(v1, 11); v2 += ROTL32(v2, 17); v3 += ROTL32(v3, 19); v4 += ROTL32(v4, 13);
-                v1 *= XXHASH_PRIME3; v2 *= XXHASH_PRIME3; v3 *= XXHASH_PRIME3; v4 *= XXHASH_PRIME3;
-
-                crc = v1 + ROTL32(v2, 3) + ROTL32(v3, 6) + ROTL32(v4, 9);
-                crc ^= crc >> 11;
-                crc += (XXHASH_PRIME4+len) * XXHASH_PRIME1;
-                crc ^= crc >> 15;
-                crc *= XXHASH_PRIME2;
-                crc ^= crc >> 13;
-
-                return crc;
-        }
-
-}
-
-
-
-PERL_STATIC_INLINE U32
-S_perl_hash_xxhash_strong32(const unsigned char * const seed, const unsigned char *p, const STRLEN len) {
-        /* Special case, for small inputs */
-        if (len < 16) return S_perl_hash_xxhash_small32(seed, p, len);
-
-        {
-                const unsigned char* const bEnd = p + len;
-                U32 v1 = *((U32*)seed) + XXHASH_PRIME1;
-                U32 v2 = v1 * XXHASH_PRIME2 + len;
-                U32 v3 = v2 * XXHASH_PRIME3;
-                U32 v4 = v3 * XXHASH_PRIME4;
-                const unsigned char* const limit = bEnd - 16;
-                U32 crc;
-
-                while (p<limit)
-                {
-                        v1 += ROTL32(v1, 13); v1 *= XXHASH_PRIME1; v1 += (*(U32*)p); p+=4;
-                        v2 += ROTL32(v2, 11); v2 *= XXHASH_PRIME1; v2 += (*(U32*)p); p+=4;
-                        v3 += ROTL32(v3, 17); v3 *= XXHASH_PRIME1; v3 += (*(U32*)p); p+=4;
-                        v4 += ROTL32(v4, 19); v4 *= XXHASH_PRIME1; v4 += (*(U32*)p); p+=4;
-                }
-
-                p = bEnd - 16;
-                v1 += ROTL32(v1, 17); v2 += ROTL32(v2, 19); v3 += ROTL32(v3, 13); v4 += ROTL32(v4, 11);
-                v1 *= XXHASH_PRIME1; v2 *= XXHASH_PRIME1; v3 *= XXHASH_PRIME1; v4 *= XXHASH_PRIME1;
-                v1 += *(U32*)p; p+=4; v2 += *(U32*)p; p+=4; v3 += *(U32*)p; p+=4; v4 += *(U32*)p;   /* p+=4; */
-                v1 *= XXHASH_PRIME2; v2 *= XXHASH_PRIME2; v3 *= XXHASH_PRIME2; v4 *= XXHASH_PRIME2;
-                v1 += ROTL32(v1, 11); v2 += ROTL32(v2, 17); v3 += ROTL32(v3, 19); v4 += ROTL32(v4, 13);
-                v1 *= XXHASH_PRIME3; v2 *= XXHASH_PRIME3; v3 *= XXHASH_PRIME3; v4 *= XXHASH_PRIME3;
-
-                crc = v1 + ROTL32(v2, 3) + ROTL32(v3, 6) + ROTL32(v4, 9);
-                crc ^= crc >> 11;
-                crc += (XXHASH_PRIME4+len) * XXHASH_PRIME1;
-                crc ^= crc >> 15;
-                crc *= XXHASH_PRIME2;
-                crc ^= crc >> 13;
-
-                return crc;
-        }
-
 }
 
 /* legacy - only mod_perl should be doing this.  */
