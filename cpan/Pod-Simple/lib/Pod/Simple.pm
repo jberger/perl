@@ -18,7 +18,7 @@ use vars qw(
 );
 
 @ISA = ('Pod::Simple::BlackBox');
-$VERSION = '3.23';
+$VERSION = '3.24';
 
 @Known_formatting_codes = qw(I B C L E F S X Z); 
 %Known_formatting_codes = map(($_=>1), @Known_formatting_codes);
@@ -1094,7 +1094,7 @@ sub _treat_Ls {  # Process our dear dear friends, the L<...> sequences
       # Catch some very simple and/or common cases
       if(@{$ell} == 3 and ! ref $ell->[2]) {
         my $it = $ell->[2];
-        if($it =~ m/^[-a-zA-Z0-9]+\([-a-zA-Z0-9]+\)$/s) { # man sections
+        if($it =~ m{^[^/|]+[(][-a-zA-Z0-9]+[)]$}s) { # man sections
           # Hopefully neither too broad nor too restrictive a RE
           DEBUG > 1 and print "Catching \"$it\" as manpage link.\n";
           $ell->[1]{'type'} = 'man';
@@ -1253,7 +1253,7 @@ sub _treat_Ls {  # Process our dear dear friends, the L<...> sequences
       # And the E resolver will have to deal with all our treeletty things:
 
       if(@ell_content == 1 and !ref($ell_content[0])
-         and $ell_content[0] =~ m/^[-a-zA-Z0-9]+\([-a-zA-Z0-9]+\)$/s
+         and $ell_content[0] =~ m{^[^/]+[(][-a-zA-Z0-9]+[)]$}s
       ) {
         $ell->[1]{'type'}    = 'man';
         DEBUG > 3 and print "Considering this ($ell_content[0]) a man link.\n";
