@@ -32,7 +32,7 @@ our @EXPORT_OK  = qw(
                      bucket_stats bucket_info bucket_array
                      lock_hash_recurse unlock_hash_recurse
                     );
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 require XSLoader;
 XSLoader::load();
 
@@ -540,8 +540,10 @@ close to and below 1 indicate good hashing, and number significantly
 above indicate a poor score. In practice it should be around 0.95 to 1.05.
 It is defined as:
 
- $score= sum( $count[$length] * ($length * ($length + 1) / 2) ) /
-            ( ( $keys / 2 * $buckets ) * ( $keys + ( 2 * $buckets ) - 1 ) )
+ $score= sum( $count[$length] * ($length * ($length + 1) / 2) )
+            /
+            ( ( $keys / 2 * $buckets ) *
+              ( $keys + ( 2 * $buckets ) - 1 ) )
 
 The formula is from the Red Dragon book (reformulated to use the data available)
 and is documented at L<http://www.strchr.com/hash_functions>
