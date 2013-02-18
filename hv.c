@@ -1108,6 +1108,7 @@ S_hsplit(pTHX_ HV *hv, STRLEN const oldsize, STRLEN newsize)
 {
     dVAR;
     STRLEN i = 0;
+    U32 bucket_rand;
     char *a = (char*) HvARRAY(hv);
     HE **aep;
 
@@ -1134,10 +1135,17 @@ S_hsplit(pTHX_ HV *hv, STRLEN const oldsize, STRLEN newsize)
 
     if (!HvTOTALKEYS(hv))       /* skip rest if no entries */
         return;
+    
+    /* the idea of this is that we create a "random" value by hashing the address of
+     * the array, we then use the low bit to decide if we insert at the top, or insert
+     * second from top. After each such insert we rotate the hashed value. So we can
+     * use the same hashed value over and over, and in normal build environments use
+     * very few ops to do so. ROTL32() should produce a single machine operation. */
+    HvRAND(hv)= bucket_rand= ptr_hash((PTRV)a);
 
     aep = (HE**)a;
     do {
-	HE **oentry = aep + i;
+	HE **oentry = aep + i; /* where we got the old entry from */
 	HE *entry = aep[i];
 
 	if (!entry)				/* non-existent */
@@ -1146,8 +1154,14 @@ S_hsplit(pTHX_ HV *hv, STRLEN const oldsize, STRLEN newsize)
             U32 j = (HeHASH(entry) & newsize);
 	    if (j != (U32)i) {
 		*oentry = HeNEXT(entry);
-                HeNEXT(entry) = aep[j];
-                aep[j] = entry;
+                if (!aep[j] || (bucket_rand & 1)) {
+                    HeNEXT(entry) = aep[j];
+                    aep[j] = entry;
+                } else {
+                    HeNEXT(entry)= HeNEXT(aep[j]);
+                    HeNEXT(aep[j])= entry;
+                }
+                bucket_rand= ROTL32(bucket_rand,1);
 	    }
 	    else {
 		oentry = &HeNEXT(entry);
