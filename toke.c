@@ -5024,8 +5024,9 @@ Perl_yylex(pTHX)
 #endif
     switch (*s) {
     default:
-	if (isIDFIRST_lazy_if(s,UTF))
+	if (UTF ? isIDFIRST_utf8((U8*)s) : isALNUMC(*s)) {
 	    goto keylookup;
+	}
 	{
         SV *dsv = newSVpvs_flags("", SVs_TEMP);
         const char *c = UTF ? savepv(sv_uni_display(dsv, newSVpvn_flags(s,
@@ -9194,49 +9195,14 @@ S_scan_word(pTHX_ char *s, char *dest, STRLEN destlen, int allow_package, STRLEN
     bool is_utf8 = cBOOL(UTF);
 
     PERL_ARGS_ASSERT_SCAN_WORD;
-
-    for (;;) {
-	if (d >= e)
-	    Perl_croak(aTHX_ "%s", ident_too_long);
-        if (is_utf8 && (UTF8_IS_START(*s) || UTF8_IS_INVARIANT(*s))
-                    && isIDFIRST_utf8((U8*)s))
-        {
-            /* The UTF-8 case must come first, otherwise things
-            * like c\N{COMBINING TILDE} would start failing, as the
-            * isALNUM case below would gobble the 'c' up.
-            */
-            char *t = s + UTF8SKIP(s);
-            size_t len;
-            while (isIDCONT_utf8((U8*)t))
-                t += UTF8SKIP(t);
-            len = t - s;
-            if (d + len > e)
-            Perl_croak(aTHX_ ident_too_long);
-            Copy(s, d, len, char);
-            d += len;
-            s = t;
-        }
-        else if (is_utf8 ? isDIGIT_A(*s) : (isALNUMC_L1(*s) || *s == '_') )
-            *d++ = *s++;
-	else if (allow_package && (*s == '\'') && isIDFIRST_lazy_if(s+1,is_utf8)) {
-	    *d++ = ':';
-	    *d++ = ':';
-	    s++;
-	}
-	else if (allow_package && (s[0] == ':') && (s[1] == ':') && (s[2] != '$')) {
-	    *d++ = *s++;
-	    *d++ = *s++;
-	}
-	else {
-	    *d = '\0';
-	    *slp = d - dest;
-	    return s;
-	}
-    }
+    parse_ident(&s, &d, e, allow_package, is_utf8);
+    *d = '\0';
+    *slp = d - dest;
+    return s;
 }
 
 void
-S_parse_ident(pTHX_ char **s, char **d, char * const e, bool is_utf8) {
+S_parse_ident(pTHX_ char **s, char **d, char * const e, int allow_package, bool is_utf8) {
     dVAR;
     PERL_ARGS_ASSERT_PARSE_IDENT;
     
@@ -9245,7 +9211,10 @@ S_parse_ident(pTHX_ char **s, char **d, char * const e, bool is_utf8) {
             Perl_croak(aTHX_ "%s", ident_too_long);
         if (is_utf8 && isIDFIRST_utf8((U8*)*s))
         {
-            /* See the note in scan_word as for why the UTF-8 case comes first */
+            /* The UTF-8 case must come first, otherwise things
+            * like c\N{COMBINING TILDE} would start failing, as the
+            * isALNUM case below would gobble the 'c' up.
+            */
             char *t = *s + UTF8SKIP(*s);
             while (isIDCONT_utf8((U8*)t))
                 t += UTF8SKIP(t);
@@ -9255,14 +9224,19 @@ S_parse_ident(pTHX_ char **s, char **d, char * const e, bool is_utf8) {
             *d += t - *s;
             *s = t;
         }
-        else if (is_utf8 ? isDIGIT_A(**s) : (isALNUMC_L1(**s) || **s == '_') )
+        else if ( isWORDCHAR_A(**s) )
             *(*d)++ = *(*s)++;
-        else if (**s == '\'' && isIDFIRST_lazy_if(*s+1,is_utf8)) {
+        else if (allow_package && **s == '\'' && isIDFIRST_lazy_if(*s+1,is_utf8)) {
             *(*d)++ = ':';
             *(*d)++ = ':';
             (*s)++;
         }
-        else if (**s == ':' && (*s)[1] == ':') {
+        else if (allow_package && **s == ':' && (*s)[1] == ':'
+           /* Disallow things like Foo::$bar. For the curious, this is
+            * the code path that triggers the "Bad name after" warning
+            * when looking for barewords.
+            */
+           && (*s)[2] != '$') {
             *(*d)++ = *(*s)++;
             *(*d)++ = *(*s)++;
         }
@@ -9294,7 +9268,7 @@ S_scan_ident(pTHX_ char *s, const char *send, char *dest, STRLEN destlen, I32 ck
 	}
     }
     else {
-        parse_ident(&s, &d, e, is_utf8);
+        parse_ident(&s, &d, e, 1, is_utf8);
     }
     *d = '\0';
     d = dest;
@@ -9313,12 +9287,13 @@ S_scan_ident(pTHX_ char *s, const char *send, char *dest, STRLEN destlen, I32 ck
 	s++;
     }
 
-#define VALID_LEN_ONE_IDENT(d)     (isASCII(*(d))                   \
-                                      && (isPUNCT_A((U8)*(d))       \
+#define VALID_LEN_ONE_IDENT(d, u)     (isASCII(*(d)) 		    \
+                                      ? (isPUNCT_A((U8)*(d))        \
                                             || isCNTRL_A((U8)*(d))  \
-                                            || isDIGIT_A((U8)*(d))))
+                                            || isDIGIT_A((U8)*(d))) \
+                                      : (!(u) && !UTF8_IS_INVARIANT((U8)*(d)))) 
     if (s < send
-        && (isIDFIRST_lazy_if(s, is_utf8) || VALID_LEN_ONE_IDENT(s)))
+        && (isIDFIRST_lazy_if(s, is_utf8) || VALID_LEN_ONE_IDENT(s, is_utf8)))
     {
         if (is_utf8) {
             const STRLEN skip = UTF8SKIP(s);
@@ -9350,7 +9325,7 @@ S_scan_ident(pTHX_ char *s, const char *send, char *dest, STRLEN destlen, I32 ck
 	}
     if (isIDFIRST_lazy_if(d,is_utf8)) {
         d += is_utf8 ? UTF8SKIP(d) : 1;
-        parse_ident(&s, &d, e, is_utf8);
+        parse_ident(&s, &d, e, 1, is_utf8);
 	    *d = '\0';
 	    while (s < send && SPACE_OR_TAB(*s))
 		s++;

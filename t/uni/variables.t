@@ -7,7 +7,7 @@ BEGIN {
     require './test.pl';
 }
 
-plan (tests => 65719);
+plan (tests => 65785);
 
 use 5.016;
 use utf8;
@@ -70,19 +70,17 @@ for ( 0x80..0xff ) {
     my $chr = chr;
     my $esc = sprintf("%X", ord $chr);
     utf8::downgrade($chr);
-    if ($chr !~ /\p{XIDS}/) {
-        local $@;
-        evalbytes "no strict; \$$chr = 1";
-        like $@,
-            qr/\QUnrecognized character \x$esc/,
-            sprintf("\\x%02x, part of the latin-1 range, is illegal as a length-1 variable", $_);
+    if ($chr !~ /\p{XIDS}/u) {
+        is evalbytes "no strict; \$$chr = 10",
+            10,
+            sprintf("\\x%02x, part of the latin-1 range, is legal as a length-1 variable", $_);
 
         utf8::upgrade($chr);
         local $@;
         eval "no strict; use utf8; \$$chr = 1";
         like $@,
             qr/\QUnrecognized character \x{\E\L$esc/,
-            sprintf("\\x%02x, part of the latin-1 range, is illegal as a length-1 variable under use utf8", $_);
+            sprintf("..but is illegal as a length-1 variable under use utf8", $_);
     }
     else {
         {
@@ -96,6 +94,13 @@ for ( 0x80..0xff ) {
             like($@,
                 qr/Global symbol "\$$chr" requires explicit package name/,
                 "...but has to be required under strict."
+                );
+                
+            local $@;
+            evalbytes "\$a$chr = 1";
+            like($@,
+                qr/Unrecognized character /,
+                sprintf("...but under no utf8, it's not allowed in two-or-more character variables")
                 );
         }
         {
@@ -118,8 +123,9 @@ for ( 0x80..0xff ) {
 
 {
     use utf8;
-    eval "my \$c\x{327} = 1"; # c + cedilla
+    my $ret = eval "my \$c\x{327} = 100; \$c\x{327}"; # c + cedilla
     is($@, '', "ASCII character + combining character works as a variable name");
+    is($ret, 100, "...and returns the correct value");
 }
 
 # From Tom Christiansen's 'highly illegal variable names are now accidentally legal' mail
