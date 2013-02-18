@@ -1158,9 +1158,6 @@ S_hsplit(pTHX_ HV *hv)
 	    }
 	    entry = *oentry;
 	} while (entry);
-	/* I think we don't actually need to keep track of the longest length,
-	   merely flag if anything is too long. But for the moment while
-	   developing this code I'll track it.  */
     }
 }
 
@@ -1816,6 +1813,40 @@ Perl_hv_fill(pTHX_ HV const *const hv)
     return count;
 }
 
+/* hash a pointer to a U32 - Used in the hash traversal randomization
+ * and bucket order randomization code
+ *
+ * this code was derived from Sereal, which was derived from autobox.
+ */
+
+PERL_STATIC_INLINE U32 S_ptr_hash(PTRV u) {
+#if PTRSIZE == 8
+    /*
+     * This is one of Thomas Wang's hash functions for 64-bit integers from:
+     * http://www.concentric.net/~Ttwang/tech/inthash.htm
+     */
+    u = (~u) + (u << 18);
+    u = u ^ (u >> 31);
+    u = u * 21;
+    u = u ^ (u >> 11);
+    u = u + (u << 6);
+    u = u ^ (u >> 22);
+#else
+    /*
+     * This is one of Bob Jenkins' hash functions for 32-bit integers
+     * from: http://burtleburtle.net/bob/hash/integer.html
+     */
+    u = (u + 0x7ed55d16) + (u << 12);
+    u = (u ^ 0xc761c23c) ^ (u >> 19);
+    u = (u + 0x165667b1) + (u << 5);
+    u = (u + 0xd3a2646c) ^ (u << 9);
+    u = (u + 0xfd7046c5) + (u << 3);
+    u = (u ^ 0xb55a4f09) ^ (u >> 16);
+#endif
+    return (U32)u;
+}
+
+
 static struct xpvhv_aux*
 S_hv_auxinit(HV *hv) {
     struct xpvhv_aux *iter;
@@ -1832,31 +1863,7 @@ S_hv_auxinit(HV *hv) {
 	      + sizeof(struct xpvhv_aux), char);
     }
     if (!HvRAND(hv)) {
-        PTRV u= (PTRV)array;
-#if PTRSIZE == 8
-    /*
-     * This is one of Thomas Wang's hash functions for 64-bit integers from:
-     * http://www.concentric.net/~Ttwang/tech/inthash.htm
-     */
-        u = (~u) + (u << 18);
-        u = u ^ (u >> 31);
-        u = u * 21;
-        u = u ^ (u >> 11);
-        u = u + (u << 6);
-        u = u ^ (u >> 22);
-#else
-    /*
-     * This is one of Bob Jenkins' hash functions for 32-bit integers
-     * from: http://burtleburtle.net/bob/hash/integer.html
-     */
-        u = (u + 0x7ed55d16) + (u << 12);
-        u = (u ^ 0xc761c23c) ^ (u >> 19);
-        u = (u + 0x165667b1) + (u << 5);
-        u = (u + 0xd3a2646c) ^ (u << 9);
-        u = (u + 0xfd7046c5) + (u << 3);
-        u = (u ^ 0xb55a4f09) ^ (u >> 16);
-#endif
-        HvRAND(hv)= (U32)u;
+        HvRAND(hv)= ptr_hash((PTRV)array);
     }
 
     HvARRAY(hv) = (HE**) array;
