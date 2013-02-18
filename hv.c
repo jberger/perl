@@ -1145,7 +1145,7 @@ S_hsplit(pTHX_ HV *hv)
      * second from top. After each such insert we rotate the hashed value. So we can
      * use the same hashed value over and over, and in normal build environments use
      * very few ops to do so. ROTL32() should produce a single machine operation. */
-    bucket_rand= ptr_hash((PTRV)a);
+    HvRAND(hv)= bucket_rand= ptr_hash((PTRV)a);
 
     for (i=0; i<oldsize; i++,aep++) {
 	HE **oentry = aep;
@@ -1166,7 +1166,7 @@ S_hsplit(pTHX_ HV *hv)
                     HeNEXT(*bep)= entry;
                     HeNEXT(entry)= tmp;
                 }
-                ROTL32(bucket_rand,1);
+                bucket_rand= ROTL32(bucket_rand,1);
 	    }
 	    else {
 		oentry = &HeNEXT(entry);
