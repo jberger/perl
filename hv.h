@@ -101,6 +101,7 @@ struct xpvhv {
     union _xmgu	xmg_u;
     STRLEN      xhv_keys;       /* total keys, including placeholders */
     STRLEN      xhv_max;        /* subscript of last element of xhv_array */
+    U32         xhv_rand;       /* random value for hash traversal */
 };
 
 /*
@@ -214,6 +215,7 @@ C<SV*>.
 #define HvARRAY(hv)	((hv)->sv_u.svu_hash)
 #define HvFILL(hv)	Perl_hv_fill(aTHX_ (const HV *)(hv))
 #define HvMAX(hv)	((XPVHV*)  SvANY(hv))->xhv_max
+#define HvRAND(hv)      ((XPVHV*)  SvANY(hv))->xhv_rand
 /* This quite intentionally does no flag checking first. That's your
    responsibility.  */
 #define HvAUX(hv)	((struct xpvhv_aux*)&(HvARRAY(hv)[HvMAX(hv)+1]))
