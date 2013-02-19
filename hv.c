@@ -786,8 +786,23 @@ Perl_hv_common(pTHX_ HV *hv, SV *keysv, const char *key, STRLEN klen,
     else                                       /* gotta do the real thing */
 	HeKEY_hek(entry) = save_hek_flags(key, klen, hash, flags);
     HeVAL(entry) = val;
-    HeNEXT(entry) = *oentry;
-    *oentry = entry;
+    /* This logic semi- randomizes the insert order in a bucket.
+     * Either we insert into the top, or the slot below the top
+     *
+     * We rotate the HvRAND(hv) each time we use it, so that each
+     * insert potentially gets a different result.
+     */
+    if (!HvRAND(hv)) {
+        HvRAND(hv)= ptr_hash((PTRV)HvARRAY(hv));
+    }
+    if (!*oentry || HvRAND(hv) & 1) {
+        HeNEXT(entry) = *oentry;
+        *oentry = entry;
+    } else {
+        HeNEXT(entry) = HeNEXT(*oentry);
+        HeNEXT(*oentry) = entry;
+    }
+    HvRAND(hv)= ROTL32(HvRAND(hv),1);
 
     if (val == &PL_sv_placeholder)
 	HvPLACEHOLDERS(hv)++;
