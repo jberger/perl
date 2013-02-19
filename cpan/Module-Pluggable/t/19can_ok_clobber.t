@@ -21,7 +21,7 @@ is_deeply(
     \@plugins_after,
     \@plugins,
     "plugins haven't been clobbered",
-);
+) or diag Dumper(\@plugins_after,\@plugins);
 
 can_ok ($foo, 'frobnitz');
 
@@ -30,7 +30,7 @@ is_deeply(
     \@plugins_after,
     \@plugins,
     "plugins haven't been clobbered",
-) or diag Dumper ;
+) or diag Dumper(\@plugins_after,\@plugins);
 
 
 
