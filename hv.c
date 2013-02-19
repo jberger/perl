@@ -786,8 +786,33 @@ Perl_hv_common(pTHX_ HV *hv, SV *keysv, const char *key, STRLEN klen,
     else                                       /* gotta do the real thing */
 	HeKEY_hek(entry) = save_hek_flags(key, klen, hash, flags);
     HeVAL(entry) = val;
-    HeNEXT(entry) = *oentry;
-    *oentry = entry;
+    if (*oentry) {
+        /* This logic semi- randomizes the insert order in a bucket.
+         * Either we insert into the top, or the slot below the top
+         *
+         * We rotate the HvRAND(hv) each time we use it, so that each
+         * insert potentially gets a different result.
+         */
+        if (!HvRAND(hv)) {
+            HvRAND(hv)= ptr_hash((PTRV)HvARRAY(hv));
+        }
+        if (HvRAND(hv) & 1) {
+            HeNEXT(entry) = *oentry;
+            *oentry = entry;
+        } else {
+            HeNEXT(entry) = HeNEXT(*oentry);
+            HeNEXT(*oentry) = entry;
+        }
+        HvRAND(hv)= ROTL32(HvRAND(hv),1);
+    }
+    else {
+        *oentry = entry;
+        /* I am not sure that HeNEXT(entry) will be NULL or not after new_HE().
+         * So for now we assume that this is not a safe assumption, and set it explicitly.
+         * If we can prove that it IS a safe assumption we could remove the next line.
+         */
+        HeNEXT(entry) = NULL;
+    }
 
     if (val == &PL_sv_placeholder)
 	HvPLACEHOLDERS(hv)++;
