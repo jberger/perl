@@ -2755,7 +2755,7 @@ MAKE_FRAG
     return join "", @m unless $self->needs_linking;
 
     if ($self->{OBJECT}) {
-        my $fmt= '        \$(PERL_INC)/%s            '; # preserve the old indentation and formating
+        my $fmt= '        $(PERL_INC)/%s            '; # preserve the old indentation and formating
         push @m, qq{PERL_HDRS = \\\n}
                . join("\\\n", map { sprintf $fmt, $_ } $self->_perl_header_files())
                . qq{\n\n\$(OBJECT) : \$(PERL_HDRS)\n};
