@@ -807,9 +807,7 @@ Perl_hv_common(pTHX_ HV *hv, SV *keysv, const char *key, STRLEN klen,
     }
     else {
         *oentry = entry;
-        /* I am not sure that HeNEXT(entry) will be NULL or not after new_HE().
-         * So for now we assume that this is not a safe assumption, and set it explicitly.
-         * If we can prove that it IS a safe assumption we could remove the next line.
+        /* HeNEXT(entry) isn't set by new_HE().  So we have do this ourselves:
          */
         HeNEXT(entry) = NULL;
     }
