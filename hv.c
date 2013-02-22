@@ -1828,20 +1828,18 @@ S_hv_auxinit(HV *hv) {
 
     PERL_ARGS_ASSERT_HV_AUXINIT;
 
-    if (!HvARRAY(hv)) {
-	Newxz(array, PERL_HV_ARRAY_ALLOC_BYTES(HvMAX(hv) + 1)
-	    + sizeof(struct xpvhv_aux), char);
-    } else {
-	array = (char *) HvARRAY(hv);
-	Renew(array, PERL_HV_ARRAY_ALLOC_BYTES(HvMAX(hv) + 1)
-	      + sizeof(struct xpvhv_aux), char);
+    if (!SvOOK(hv)) {
+        if (!HvARRAY(hv)) {
+            Newxz(array, PERL_HV_ARRAY_ALLOC_BYTES(HvMAX(hv) + 1)
+                + sizeof(struct xpvhv_aux), char);
+        } else {
+            array = (char *) HvARRAY(hv);
+            Renew(array, PERL_HV_ARRAY_ALLOC_BYTES(HvMAX(hv) + 1)
+                  + sizeof(struct xpvhv_aux), char);
+        }
+        HvARRAY_set(hv, array);
+        SvOOK_on(hv);
     }
-    if (!HvRAND(hv)) {
-        HvRAND(hv)= ptr_hash((PTRV)array);
-    }
-
-    HvARRAY(hv) = (HE**) array;
-    SvOOK_on(hv);
     iter = HvAUX(hv);
 
     iter->xhv_riter = -1; 	/* HvRITER(hv) = -1 */
