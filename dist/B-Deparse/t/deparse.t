@@ -1373,5 +1373,6 @@ my($a, $b, $c) = @_;
 # TODO unimplemented in B::Deparse; RT #116553
 # lexical subroutine
 use feature 'lexical_subs';
+no warnings 'experimental::lexical_subs';
 my sub f {}
 print f();
