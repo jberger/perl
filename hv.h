@@ -216,6 +216,12 @@ C<SV*>.
 #define HvFILL(hv)	Perl_hv_fill(aTHX_ (const HV *)(hv))
 #define HvMAX(hv)	((XPVHV*)  SvANY(hv))->xhv_max
 #define HvRAND(hv)      ((XPVHV*)  SvANY(hv))->xhv_rand
+
+#define HvARRAY_set(hv,a)   STMT_START {    \
+    HvARRAY(hv)= (HE **)a;                  \
+    HvRAND(hv)= ptr_hash((PTRV)a);          \
+} STMT_END
+
 /* This quite intentionally does no flag checking first. That's your
    responsibility.  */
 #define HvAUX(hv)	((struct xpvhv_aux*)&(HvARRAY(hv)[HvMAX(hv)+1]))

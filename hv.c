@@ -577,7 +577,7 @@ Perl_hv_common(pTHX_ HV *hv, SV *keysv, const char *key, STRLEN klen,
 	    Newxz(array,
 		 PERL_HV_ARRAY_ALLOC_BYTES(xhv->xhv_max+1 /* HvMAX(hv)+1 */),
 		 char);
-	    HvARRAY(hv) = (HE**)array;
+            HvARRAY_set(hv,array);
 	}
 #ifdef DYNAMIC_ENV_FETCH
 	else if (action & HV_FETCH_ISEXISTS) {
@@ -765,7 +765,7 @@ Perl_hv_common(pTHX_ HV *hv, SV *keysv, const char *key, STRLEN klen,
 	Newxz(array,
 	     PERL_HV_ARRAY_ALLOC_BYTES(xhv->xhv_max+1 /* HvMAX(hv)+1 */),
 	     char);
-	HvARRAY(hv) = (HE**)array;
+        HvARRAY_set(hv,array);
     }
 
     oentry = &(HvARRAY(hv))[hash & (I32) xhv->xhv_max];
@@ -792,9 +792,6 @@ Perl_hv_common(pTHX_ HV *hv, SV *keysv, const char *key, STRLEN klen,
      * We rotate the HvRAND(hv) each time we use it, so that each
      * insert potentially gets a different result.
      */
-    if (!HvRAND(hv)) {
-        HvRAND(hv)= ptr_hash((PTRV)HvARRAY(hv));
-    }
     if (!*oentry || HvRAND(hv) & 1) {
         HeNEXT(entry) = *oentry;
         *oentry = entry;
@@ -1146,17 +1143,20 @@ S_hsplit(pTHX_ HV *hv, STRLEN const oldsize, STRLEN newsize)
     PL_nomemok = FALSE;
     Zero(&a[oldsize * sizeof(HE*)], (newsize-oldsize) * sizeof(HE*), char);	/* zero 2nd half*/
     HvMAX(hv) = --newsize;
-    HvARRAY(hv) = (HE**) a;
-
-    if (!HvTOTALKEYS(hv))       /* skip rest if no entries */
-        return;
-    
+    HvARRAY_set(hv, a);
     /* the idea of this is that we create a "random" value by hashing the address of
      * the array, we then use the low bit to decide if we insert at the top, or insert
      * second from top. After each such insert we rotate the hashed value. So we can
      * use the same hashed value over and over, and in normal build environments use
-     * very few ops to do so. ROTL32() should produce a single machine operation. */
-    HvRAND(hv)= bucket_rand= ptr_hash((PTRV)a);
+     * very few ops to do so. ROTL32() should produce a single machine operation.
+     *
+     * See definition of HvARRAY_set();
+     *
+     */
+    bucket_rand= HvRAND(hv);
+
+    if (!HvTOTALKEYS(hv))       /* skip rest if no entries */
+        return;
 
     aep = (HE**)a;
     do {
@@ -1214,7 +1214,7 @@ Perl_hv_ksplit(pTHX_ HV *hv, IV newmax)
     } else {
         Newxz(a, PERL_HV_ARRAY_ALLOC_BYTES(newsize), char);
         xhv->xhv_max = --newsize;
-        HvARRAY(hv) = (HE **) a;
+        HvARRAY_set(hv,a);
     }
 }
 
@@ -1272,7 +1272,7 @@ Perl_newHVhv(pTHX_ HV *ohv)
 
 	HvMAX(hv)   = hv_max;
 	HvTOTALKEYS(hv)  = HvTOTALKEYS(ohv);
-	HvARRAY(hv) = ents;
+        HvARRAY_set(hv,ents);
     } /* not magical */
     else {
 	/* Iterate over ohv, copying keys and values one at a time. */
@@ -1742,7 +1742,8 @@ Perl_hv_undef_flags(pTHX_ HV *hv, U32 flags)
     if (!SvOOK(hv)) {
 	Safefree(HvARRAY(hv));
 	xhv->xhv_max   = 7;	/* HvMAX(hv) = 7 (it's a normal hash) */
-	HvARRAY(hv) = 0;
+        HvARRAY(hv) = NULL;
+        HvRAND(hv) = 0;
     }
     /* if we're freeing the HV, the SvMAGIC field has been reused for
      * other purposes, and so there can't be any placeholder magic */
@@ -2834,7 +2835,7 @@ Perl_refcounted_he_chain_2hv(pTHX_ const struct refcounted_he *chain, U32 flags)
     if (!HvARRAY(hv)) {
 	char *array;
 	Newxz(array, PERL_HV_ARRAY_ALLOC_BYTES(max + 1), char);
-	HvARRAY(hv) = (HE**)array;
+        HvARRAY_set(hv, array);
     }
 
     placeholders = 0;
