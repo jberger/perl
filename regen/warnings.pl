@@ -543,29 +543,29 @@ Otherwise returns FALSE.
 
 =item warnings::warn($message)
 
-Print C<$message> to STDERR.
+Print C<$message> to STDERR via C<carp> or C<croak>.
 
 Use the warnings category with the same name as the current package.
 
 If that warnings category has been set to "FATAL" in the calling module
-then die. Otherwise return.
+then C<croak>. Otherwise C<carp>.
 
 =item warnings::warn($category, $message)
 
-Print C<$message> to STDERR.
+Print C<$message> to STDERR via C<carp> or C<croak>.
 
 If the warnings category, C<$category>, has been set to "FATAL" in the
-calling module then die. Otherwise return.
+calling module then C<croak>. Otherwise C<carp>.
 
 =item warnings::warn($object, $message)
 
-Print C<$message> to STDERR.
+Print C<$message> to STDERR via C<carp> or C<croak>.
 
 Use the name of the class for the object reference, C<$object>, as the
 warnings category.
 
 If that warnings category has been set to "FATAL" in the scope where C<$object>
-is first used then die. Otherwise return.
+is first used then C<croak>. Otherwise C<carp>.
 
 
 =item warnings::warnif($message)
